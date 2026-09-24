@@ -91,11 +91,28 @@ curl -s https://api-inference.bitdeer.ai/v1/models \
   -H "Authorization: Bearer $BITDEER_API_KEY" | jq -r '.data[].id'
 ```
 
-## pi Configuration Notes
+## pi Agent Installation & Configuration
 
-- Provider config lives in `~/.pi/agent/models.json` and reloads whenever `/model`
-  is opened — no restart required.
-- `apiKey` in `models.json` supports three forms:
+- **Install:** `npm install -g --ignore-scripts @earendil-works/pi-coding-agent`
+  (alternative: `curl -fsSL https://pi.dev/install.sh | sh`)
+- **Requires:** Node.js ≥ 22.19 (`node --version`). On EACCES with global npm
+  installs, use nvm or the curl installer.
+- **Provider config:** `~/.pi/agent/models.json` (this skill's `setup.sh` writes it).
+  Reloads whenever `/model` is opened — no restart required.
+- **Startup default:** `~/.pi/agent/settings.json` —
+
+  ```json
+  {
+    "defaultProvider": "bitdeer",
+    "defaultModel": "zai-org/GLM-5.3"
+  }
+  ```
+
+  Plain `pi` then starts on GLM-5.3. (`setup.sh --set-default` writes this,
+  preserving existing settings; equivalently press Ctrl+S in the `/model` picker.)
+- **Non-interactive smoke test:**
+  `pi --no-session -p --model bitdeer/zai-org/GLM-5.3 "Reply with exactly: OK"`
+- **apiKey in models.json** supports three forms:
   - literal: `"bd-..."`
   - environment reference: `"$BITDEER_API_KEY"` or `"${BITDEER_API_KEY}"` (resolved at request time; the variable must be in pi's environment)
   - shell command: `"!security find-generic-password -ws bitdeer"` (stdout is used)

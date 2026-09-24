@@ -1,43 +1,48 @@
 # bitdeer-setup
 
-A [pi](https://github.com/earendil-works/pi-coding-agent) skill that sets up
-**`zai-org/GLM-5.3`** (and other models) from [Bitdeer AI](https://cloud.bitdeer.ai)
-as a model provider, via Bitdeer's OpenAI-compatible inference API at
-`https://api-inference.bitdeer.ai/v1`.
+An [Agent Skills](https://agentskills.io) runbook that sets up the **pi coding
+agent** with **`zai-org/GLM-5.3`** from [Bitdeer AI](https://cloud.bitdeer.ai)
+— end to end, on a fresh machine, executed entirely by an AI agent
+(Claude Code, pi, or any other). The user does nothing hands-on except supply
+the Bitdeer API key when asked.
 
-This repository **is** the skill — it contains a `SKILL.md`, helper scripts, and
-an API reference.
+This repository **is** the skill: a `SKILL.md` runbook, helper scripts, and an
+API reference.
 
-## Quick Start
+## What the Agent Does (end to end)
+
+1. **Preflight** — checks/installs Node.js ≥ 22.19, npm, curl, jq
+2. **Installs pi** — `npm install -g --ignore-scripts @earendil-works/pi-coding-agent`
+3. **API key** — asks you for the key, or sets up a placeholder in `.env` (gitignored) to fill in later
+4. **Configures the provider** — merges `bitdeer` (GLM-5.3 + 5 more models) into `~/.pi/agent/models.json`
+5. **Sets startup defaults** — plain `pi` starts on `zai-org/GLM-5.3`
+6. **Verifies live** — auth check, model catalog, test completion, and a `pi -p` smoke test
+
+## Usage
+
+On the target machine, clone the repo and point your agent at it:
 
 ```bash
-git clone https://github.com/MJXMJ/bitdeer-setup.git
-cd bitdeer-setup
-cp .env.example .env   # paste your Bitdeer API key (https://cloud.bitdeer.ai → API Keys)
-./scripts/setup.sh     # merges the bitdeer provider into ~/.pi/agent/models.json
-./scripts/verify.sh    # tests the key, lists models, runs a tiny GLM-5.3 completion
-pi --model bitdeer/zai-org/GLM-5.3
+git clone https://github.com/MJXMJ/bitdeer-setup.git ~/bitdeer-setup
 ```
+
+- **Claude Code:** clone into `~/.claude/skills/bitdeer-setup` for auto-discovery,
+  or open the repo and say *"Execute the skill in SKILL.md"*.
+- **pi:** clone into `~/.pi/agent/skills/bitdeer-setup`, then run `/skill:bitdeer-setup`.
+
+The agent follows `SKILL.md` step by step. If you don't have the API key yet,
+it completes everything with a placeholder and tells you exactly how to finish:
+paste the key into `.env`, then tell the agent *"bitdeer key is in place"*.
 
 ## What's Included
 
 | Path | Purpose |
 |---|---|
-| `SKILL.md` | The skill itself: setup instructions, usage, troubleshooting |
-| `scripts/setup.sh` | Merges the `bitdeer` provider into `~/.pi/agent/models.json` (backs up first) |
-| `scripts/verify.sh` | Auth check, live model catalog, GLM-5.3 test completion |
-| `references/bitdeer-api.md` | Endpoint reference, verified request/response behavior, model catalog |
+| `SKILL.md` | The agent runbook: install → key → configure → verify |
+| `scripts/setup.sh` | Merges the `bitdeer` provider into `~/.pi/agent/models.json`; `--set-default` also sets GLM-5.3 as pi's startup model (backs up first) |
+| `scripts/verify.sh` | 4-stage verification: auth, catalog, test completion, pi smoke test |
+| `references/bitdeer-api.md` | Endpoint reference, verified request/response behavior, model catalog, pi config details |
 | `.env.example` | Template for the API key (real `.env` is gitignored) |
-
-## Using the Skill in pi
-
-Clone (or symlink) this repo into a skill location, e.g.:
-
-```bash
-git clone https://github.com/MJXMJ/bitdeer-setup.git ~/.pi/agent/skills/bitdeer-setup
-```
-
-Then ask pi to set up Bitdeer/GLM-5.3, or run `/skill:bitdeer-setup` directly.
 
 ## Security
 

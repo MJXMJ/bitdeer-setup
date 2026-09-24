@@ -2,14 +2,19 @@
 #
 # setup.sh — configure the Bitdeer AI provider (zai-org/GLM-5.3) for the pi coding agent.
 #
-# Merges the provider config into ~/.pi/agent/models.json.
+# Merges the provider into ~/.pi/agent/models.json and (with --set-default) sets
+# bitdeer / zai-org/GLM-5.3 as pi's startup default in ~/.pi/agent/settings.json.
+#
 # The API key is read from (in order): $BITDEER_API_KEY, .env next to this
 # script, or an interactive prompt. The key is only ever written to
 # ~/.pi/agent/models.json (outside any git repo) — never into this repository.
+# A placeholder key (from .env.example) is detected and reported; the config is
+# still written so everything except the key is ready.
 #
 # Usage:
-#   ./scripts/setup.sh                 # store the literal key in models.json (default)
-#   ./scripts/setup.sh --use-env-var   # store "$BITDEER_API_KEY" reference instead
+#   ./scripts/setup.sh                    # configure the provider only
+#   ./scripts/setup.sh --set-default      # also make GLM-5.3 pi's startup default
+#   ./scripts/setup.sh --use-env-var      # store "$BITDEER_API_KEY" reference instead of the literal key
 #   PI_MODELS_JSON=/tmp/test.json ./scripts/setup.sh   # dry-run to another file
 #
 set -euo pipefail
@@ -17,17 +22,21 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILL_ROOT="$(dirname "$SCRIPT_DIR")"
 MODELS_JSON="${PI_MODELS_JSON:-$HOME/.pi/agent/models.json}"
+SETTINGS_JSON="${PI_SETTINGS_JSON:-$HOME/.pi/agent/settings.json}"
 USE_ENV_VAR=0
+SET_DEFAULT=0
+PLACEHOLDER="your-bitdeer-api-key"
 
 for arg in "$@"; do
   case "$arg" in
     --use-env-var) USE_ENV_VAR=1 ;;
+    --set-default) SET_DEFAULT=1 ;;
     -h|--help) grep '^#' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "error: unknown option: $arg (see --help)" >&2; exit 1 ;;
   esac
 done
 
-command -v jq >/dev/null || { echo "error: jq is required (brew install jq)" >&2; exit 1; }
+command -v jq >/dev/null || { echo "error: jq is required (brew install jq / apt install jq)" >&2; exit 1; }
 
 # --- Locate the API key ------------------------------------------------------
 if [[ -f "$SKILL_ROOT/.env" ]]; then
@@ -45,6 +54,13 @@ fi
 if [[ -z "$API_KEY" ]]; then
   echo "error: no API key found. Set BITDEER_API_KEY, put it in $SKILL_ROOT/.env, or run without --use-env-var to be prompted." >&2
   exit 1
+fi
+
+if [[ "$API_KEY" == "$PLACEHOLDER" ]]; then
+  echo "⚠ WARNING: .env still contains the PLACEHOLDER key."
+  echo "  The provider config is written, but API calls will fail with 401 until the"
+  echo "  real key is placed in $SKILL_ROOT/.env and this script is re-run."
+  echo
 fi
 
 # Representation of the key written into models.json
@@ -99,6 +115,22 @@ echo "✓ Bitdeer provider written to $MODELS_JSON"
 echo "  Endpoint: https://api-inference.bitdeer.ai/v1"
 echo "  Models:   zai-org/GLM-5.3 (reasoning), GLM-5.3-Flash, Kimi-K3,"
 echo "            DeepSeek-V4-Flash, DeepSeek-V4.1-Flash, Qwen3.8-27B"
+
+# --- Optional: set pi startup default ---------------------------------------
+if [[ $SET_DEFAULT -eq 1 ]]; then
+  mkdir -p "$(dirname "$SETTINGS_JSON")"
+  if [[ ! -f "$SETTINGS_JSON" ]]; then
+    echo '{}' > "$SETTINGS_JSON"
+  else
+    SBACKUP="$SETTINGS_JSON.backup-$(date +%Y%m%d-%H%M%S)"
+    cp "$SETTINGS_JSON" "$SBACKUP"
+    echo "Backup written: $SBACKUP"
+  fi
+  jq '.defaultProvider = "bitdeer" | .defaultModel = "zai-org/GLM-5.3"' \
+    "$SETTINGS_JSON" > "$SETTINGS_JSON.tmp" && mv "$SETTINGS_JSON.tmp" "$SETTINGS_JSON"
+  echo "✓ Startup default set in $SETTINGS_JSON: provider=bitdeer model=zai-org/GLM-5.3 (plain 'pi' now starts on GLM-5.3)"
+fi
+
 if [[ $USE_ENV_VAR -eq 1 ]]; then
   echo
   echo "NOTE: models.json references \$BITDEER_API_KEY. Export it in your shell profile:"
@@ -106,6 +138,6 @@ if [[ $USE_ENV_VAR -eq 1 ]]; then
 fi
 echo
 echo "Next steps:"
-echo "  1. ./scripts/verify.sh                    # test the key and endpoint"
-echo "  2. pi --list-models | grep -i bitdeer     # confirm the models loaded"
-echo "  3. pi --model bitdeer/zai-org/GLM-5.3     # start a session on GLM-5.3"
+echo "  1. pi --list-models | grep -i bitdeer     # confirm the models loaded"
+echo "  2. ./scripts/verify.sh                    # test the key and endpoint"
+echo "  3. pi --no-session -p --model bitdeer/zai-org/GLM-5.3 \"Reply with exactly: OK\"   # smoke test"
